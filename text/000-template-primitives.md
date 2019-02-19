@@ -7,11 +7,10 @@
 
 ## Summary
 
-Unlock experimentation in how Ember developers author components by exposing
-primitives for associating templates with component classes and customizing
-template scope.
+Expose low-level primitives for associating component templates and classes,
+and customizing template scope.
 
-With these primitives in place, addons can more easily experiment with
+These primitives unlock experimentation, allowing addons to provide
 highly-requested features (such as single-file components) via stable, public
 API.
 
@@ -24,26 +23,28 @@ highly-requested features:
 2. Module imports in component templates.
 
 Although these features are the primary motivation, one benefit of
-stabilizing low-level APIs is that they enable experimenting with features
-that have not even been thought of yet.
+stabilizing low-level APIs is that they often enable developers to come up
+with new, unexpected ideas.
 
 ### Single-File Components
 
-Today, component JavaScript lives in one `.js` file and the template lives in
-a separate `.hbs` file. Juggling between these two files adds friction to the
-developer experience. The template and JavaScript code are inherently coupled
-and changes to one are often accompanied by changes to the other.
-Separating them provides little value in terms of reusability or
-composability.
+In Ember components today, JavaScript code lives in a `.js` file and template
+code lives in a separate `.hbs` file. Juggling between these two files adds
+friction to the developer experience.
 
-Other component APIs eliminate this friction in different ways.
+The template and JavaScript code are inherently coupled, and changes to one
+are often accompanied by changes to the other. Separating them provides
+little value in terms of improving reusability or composability.
 
-React uses JSX, which produces JavaScript values:
+Other component APIs eliminate this friction in different ways. React uses
+JSX, which produces JavaScript values:
 
 ```js
 export default class extends Component {
+  state = { name: 'World' };
+
   render() {
-    return <div>Hello world!</div>
+    return <div>Hello {this.state.name}!</div>
   }
 }
 ```
@@ -53,27 +54,180 @@ format](https://vuejs.org/v2/guide/single-file-components.html):
 
 ```html
 <template>
-  <div>Hello {{name}}</div>
+  <div>Hello {{name}}!</div>
 </template>
 
 <script>
-module.exports = {
-  data: function () {
+export default {
+  data() {
     return {
-      greeting: 'Hello'
+      name: 'World'
     }
   }
 }
 </script>
 ```
 
-That is, rather than putting a component's JavaScript code in one file and
-its template in a separate `.hbs` file, creating a file format that allows
-Ember developers to co-locate template and JavaScript code together.
+### Module Imports in Templates
 
-One of Ember's values is unlocking experimentation, so that new ideas can be
-tested, iterated on, and improved in the community before becoming a core
-part of the framework.
+One nice property of JSX is that it leverages JavaScript's existing scoping
+semantics. React components are JavaScript values that can be imported and
+referenced like any other JavaScript value. If an binding would be in scope
+in JavaScript, it's in scope in JSX:
+
+```js
+import { Component } from 'react';
+import OtherComponent from './OtherComponent';
+
+export default class extends Component {
+  render() {
+    return (
+      <div>
+        /*
+          OtherComponent is in scope because it was imported at the top of
+          the file, so we know we can invoke it here as a component.
+        */
+        <OtherComponent />
+      </div>
+    );
+  }
+}
+```
+
+This compares favorably with Vue, where developers must learn a special
+system for explicitly copying values from JavaScript scope into template
+scope, and component names can be different between where they are imported
+(`OtherComponent`) and where they are invoked (`other-component`):
+
+```html
+<template>
+  <div>
+    <other-component />
+  </div>
+</template>
+
+<script>
+import OtherComponent from './OtherComponent.vue'
+
+export default {
+  components: {
+    OtherComponent
+  }
+}
+</script>
+```
+
+Neither of these approaches is exactly right for Ember. Ideally, we'd find a
+way to maintain the performance benefits of templates (like Vue), while
+preserving the productivity and learnability benefits of JSX, where
+JavaScript and "template" scope are one in the same.
+
+### Unlocking Experimentation
+
+Rather than deciding on the best syntax for single-file components in Ember
+upfront, this RFC proposes a few new low-level APIs that addons could use to
+experiment with different formats, ultimately compiling a given format into
+JavaScript.
+
+For example, imagine a file format that uses a frontmatter-like syntax to separate
+template and JavaScript sections:
+
+```hbs
+---
+import Component from '@glimmer/component';
+import { inject as service } from '@ember/service';
+import titleize from './helpers/titleize';
+import BlogPost from './components/blog-post';
+
+export default class MyComponent extends Component {
+  @service session;
+}
+---
+
+{{#let this.session.currentUser as |user|}}
+  <BlogPost @title={{titleize @model.title}} @body={{@model.body}} @author={{user}} />
+{{/let}}
+```
+
+An addon that supported this format would, at build time, transform the above
+file into a JavaScript file that looks something like this:
+
+```js
+import Component from '@glimmer/component';
+import { inject as service } from '@ember/service';
+import titleize from './helpers/titleize';
+import BlogPost from './components/blog-post';
+
+import { createTemplateFactory } from '@ember/template-factory';
+
+const template$1 = createTemplateFactory({
+  "id": "ANJ73B7b",
+  "block": "{\"statements\":[\"...\"]}",
+  "meta": { "moduleName": "index.hbs" },
+  "scope": () => ({ BlogPost, titleize })
+});
+
+class MyComponent extends Component {
+  @service session;
+}
+
+setComponentTemplate(MyComponent, template);
+
+export default MyComponent;
+```
+
+Note that the specific format shown here is just a hypothetical example. The
+important thing is that we expose public JavaScript API for three things:
+
+1. Compiling a template into JSON.
+3. Associating a compiled template with its backing JavaScript class.
+2. Specifying the values in scope for a given template at runtime.
+
+By focusing on primitives first, we can iterate on different designs via
+addons, before settling on a default format that we'd incorporate into the
+framework.
+
+## Detailed design
+
+### Precompiling
+
+It's important to understand how templates in Ember are packaged up and
+turned into a format that can be run in the browser.
+
+Glimmer supports two modes for compiling templates: an Ahead-of-Time (AOT)
+mode where templates are compiled into binary bytecode, and a Just-in-Time
+(JIT) mode where templates are compiled into an intermediate JSON, with final
+bytecode compilation happening in the browser.
+
+Ember uses Glimmer's JIT mode, so templates are sent to the browser as an
+optimized JSON data structure. The `@ember/template-compiler` package provides
+a helper function called `precompile` that turns raw template source code into
+this "pre-compiled" JSON format.
+
+```js
+import { precompile } from '@ember/template-compiler';
+const json = precompile(`<h1>{{this.firstName}}</h1>`);
+```
+
+In this proposal, we extend the `precompile` function to take an additional
+parameter of scope.
+
+### Template Scope
+
+In a Glimmer template, "scope" refers to the list of items that can be
+referenced. For example, when you type `{{@firstName}}`, `{{this.count}}`, or
+`<UserAvatar />`, how do we figure out what each of those things refers to?
+The answer to that depends on the template's scope.
+
+Today, the scope of a template is controlled in one of three ways:
+
+1. `this` is always in scope and refers to the component instance.
+2. Arguments (like `@firstName`) are placed into scope when you invoke the component.
+3. Identifiers that aren't `this` and don't start with `@` are looked up based on a series of lookup rules.
+
+To allow the component 
+
+--- 
 
 How does Ember know which JavaScript class and template go together to define
 a single component?
@@ -197,46 +351,6 @@ setComponentTemplate(MyComponent, precompile(template, { scope }));
 
 export default MyComponent;
 ```
-
-## Detailed design
-
-### Precompiling
-
-To understand this proposal, it's important to understand how templates are
-packaged up and turned into a format that can be run in the browser.
-
-Glimmer supports two modes for compiling templates: an Ahead-of-Time (AOT)
-mode where templates are compiled into binary bytecode, and a Just-in-Time
-(JIT) mode where templates are compiled into an intermediate JSON, with final
-bytecode compilation happening in the browser.
-
-Ember uses Glimmer's JIT mode, so templates are sent to the browser as an
-optimized JSON data structure. The `@ember/template-compiler` package provides
-a helper function called `precompile` that turns raw template source code into
-this "pre-compiled" JSON format.
-
-```js
-import { precompile } from '@ember/template-compiler';
-const json = precompile(`<h1>{{this.firstName}}</h1>`);
-```
-
-In this proposal, we extend the `precompile` function to take an additional
-parameter of scope.
-
-### Template Scope
-
-In a Glimmer template, "scope" refers to the list of items that can be
-referenced. For example, when you type `{{@firstName}}`, `{{this.count}}`, or
-`<UserAvatar />`, how do we figure out what each of those things refers to?
-The answer to that depends on the template's scope.
-
-Today, the scope of a template is controlled in one of three ways:
-
-1. `this` is always in scope and refers to the component instance.
-2. Arguments (like `@firstName`) are placed into scope when you invoke the component.
-3. Identifiers that aren't `this` and don't start with `@` are looked up based on a series of lookup rules.
-
-To allow the component 
 
 > This is the bulk of the RFC.
 
