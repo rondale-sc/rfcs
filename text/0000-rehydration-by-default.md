@@ -10,31 +10,31 @@
 Firstly, I'd like to take a brief minute to talk about what Rehydration is for the curious.  To do so I'm going to pull in some of the explanation from the commit that introduced it to the Glimmer VM:
 
 > -- What is Rehydration?
-
-The rehydration feature means that the Glimmer VM can take a DOM tree
+>
+> The rehydration feature means that the Glimmer VM can take a DOM tree
 created using Server Side Rendering (SSR) and use it as the starting
 point for the append pass.
-
-Rehydration is optimized for server-rendered DOMs that will not need
+>
+> Rehydration is optimized for server-rendered DOMs that will not need
 many changes in the client, but it is also capable of making targeted
 repairs to the DOM:
-
-- if a single text node's value changes between the server and the
-  client, the text node itself is repaired.
-- if the contents of a `{{{}}}` (or SafeString) change, only the
-  bounds of that fragment of HTML are blown away and recreated.
-- if a mismatch is found, only the remainder of the current element
+>
+> - if a single text node's value changes between the server and the
+>  client, the text node itself is repaired.
+> - if the contents of a `{{{}}}` (or SafeString) change, only the
+>   bounds of that fragment of HTML are blown away and recreated.
+> - if a mismatch is found, only the remainder of the current element
   is cleared.
-
-What this means in practice is that rehydration repairs problems
+>
+> What this means in practice is that rehydration repairs problems
 in a relatively targeted way, and doesn't blows away more content
 than the contents of the current element when a mismatch occurs.
-
-Near-term work will narrow the scope of repairs further, so that
+>
+>Near-term work will narrow the scope of repairs further, so that
 mismatches inside of blocks only clear out the remainder of the
 content of the block.
 
-(from: https://github.com/glimmerjs/glimmer-vm/commit/316805b9175e01698120b9566ec51c88d075026a)
+<small>(from: https://github.com/glimmerjs/glimmer-vm/commit/316805b9175e01698120b9566ec51c88d075026a)<small>
 
 Currently Fastboot rehydration is available behind a (rather lengthy) environment variable: `EXPERIMENTAL_RENDER_MODE_SERIALIZE=true`.  The Goal of this RFC is to enable this by default and explore the work necessary to accomplish that.
 
