@@ -40,7 +40,7 @@ Currently Fastboot rehydration is available behind a (rather lengthy) environmen
 
 ## Motivation
 
-Much of the work done in FastBoot today is duplicated because rehydration is not enabled.  In fact, the current implementation of `ember-cli-fastboot` has an initializer ([here](https://github.com/ember-fastboot/ember-cli-fastboot/blob/master/addon/instance-initializers/clear-double-boot.js)) called `clear-double-boot` which removes all of the work done in SSR land so the Glimmer VM has a fresh start to begin creating the DOM.
+Much of the work done in FastBoot today is duplicated because rehydration is not enabled.  In fact, the current implementation of `ember-cli-fastboot` has an initializer ([here](https://github.com/ember-fastboot/ember-cli-fastboot/blob/master/addon/instance-initializers/clear-double-boot.js)) called `clear-double-boot` which removes all of the work done in SSR land so the Glimmer VM has a fresh start to begin creating the DOM. With Rehydration the work done on the server is not thrown away and instead re-used, so removing the `clear-double-boot` should result in faster websites.
 
 Rehydration already works with a few notable gotchas that'll we cover below.  You can, in fact, see it in action at  outdoorsy.com.  To see some of the tell-tale signs that rehydration is happening can be seen if you go there and view the request that was returned over the network.  You'll see the FastBoot content along with many comment markers (they'll look like `<!--%+b:9%-->`) used to inform the rehydration element build how to rebuild the DOM without needing to clobber it.
 
