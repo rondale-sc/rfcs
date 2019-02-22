@@ -63,8 +63,4 @@ I believe most of this should be transparent to the user.  However, the document
 
 ## Drawbacks
 
-
-## Unresolved questions
-
-> Optional, but suggested for first drafts. What parts of the design are still
-TBD?
+Mentioned above are a few of the unanswered questions.  I suspect in most cases this will be both transparent and faster for users of the system.  Though, we definitely need to get some instrumentation in so we have greater visibility into the costs or benefits related to enabling this by default.
