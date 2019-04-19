@@ -103,6 +103,10 @@ High level: When rehydration occurs there will be a mismatch in what ember think
 
 **Danger** Because of this behavior it is *highly* reccomended to disable form inputs until FastBoot has finished loading
 
+#### Automated disabling of user inputs
+
+In either case the preferred way to ensure a proper experience is to prevent user input.  If this is the case we really should allow an automated way to disable specific form inputs and allow user's to opt-out easily.
+
 ## How we teach this
 
 I believe most of this should be transparent to the user.  However, the documentation would need to be updated to alert users to potential footguns.  And how to opt-out.
