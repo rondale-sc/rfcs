@@ -48,9 +48,6 @@ Rehydration already works with a few notable gotchas that'll we cover below.  Yo
 
 Most of this work can be used today, the work nessecary for implmenting this feature would be to remove the need for the environment variable.  However, there are some unresolved problems that still need answers before we can do that.
 
-- [ ] Create a strategy for dealing with special elements ie `style`, `title`, and `pre`
-    - These tags do not render their contents as DOM instead they print exactly what you see without interpreting.  Since (as mentioned in the motivation section) there are comment tags used by the rehydration builder they show up.  This is particularly noticeable in the `title` element where the browser will show those comments in the open tab.  There is currently a workaround, but we need a more complete solution before we ship.
-    - https://github.com/glimmerjs/glimmer-vm/issues/796
 - [ ] Make the way Ember is booted more stream lined.
     - In FastBoot Ember boots itself and produces the output via the `visit` API.  However, in the Browser we need to override the default element builder by monkey-patching `Ember.ApplicationInstance#_bootSync`.  If we always enable rehydration this could likely be hardcoded, but planning is needed to consider all options.  In an ideal world we might consider using `visit` in both places
 - [ ] Allow user's to opt-out of rehydration
